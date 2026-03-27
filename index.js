@@ -2,27 +2,25 @@ window.onload = function() {
     const btn = document.getElementById('btn-on');
     const scene = document.getElementById('v-scene');
     const con = document.getElementById('v-console');
-    const edit = document.getElementById('vider-editor'); // POPRAWIONE ID
+    const edit = document.getElementById('vider-editor'); 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // --- ŁADOWANIE AUTO-SAVE (Przy starcie) ---
     const savedCode = localStorage.getItem('vider_autosave');
     if (savedCode) {
         edit.value = savedCode;
     }
 
-    // --- FUNKCJA AUTO-SAVE (Zapisuje przy każdym wpisanym znaku) ---
     edit.addEventListener('input', () => {
         localStorage.setItem('vider_autosave', edit.value);
     });
 
-    // --- GŁÓWNA LOGIKA URUCHAMIANIA ---
     btn.onclick = async function() {
         scene.innerHTML = ''; 
-        con.innerHTML = '<div style="color:#555">-- Vider v3.4 [FULL SYSTEM] --</div>';
+        con.innerHTML = '<div style="color:#555">-- Vider v3.5 [LIST UPDATE] --</div>';
         
         const lines = edit.value.split('\n');
         let viderMemory = {}; 
+        let viderLists = {}; // NOWOŚĆ: Pamięć dla list
         let viderIndex = [];
         let tableRef = null;
         let lineNum = 0;
@@ -37,6 +35,55 @@ window.onload = function() {
                 for (let key in viderMemory) {
                     l = l.split(key).join(viderMemory[key]);
                 }
+
+                // --- MODUŁ LIST (NOWOŚĆ) ---
+
+                // 1. list.create $NAZWA$,
+                if (l.startsWith("list.create") && l.endsWith(",")) {
+                    let listName = l.match(/\$.*?\$/)[0];
+                    viderLists[listName] = [];
+                    con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} created.</div>`;
+                    continue;
+                }
+
+                // 2. list.add ("Wartość") into $NAZWA$,
+                if (l.startsWith("list.add") && l.endsWith(",")) {
+                    let val = l.match(/\("(.*?)"\)/)[1];
+                    let listName = l.match(/into\s+(\$.*?\$)/)[1];
+                    if (viderLists[listName]) {
+                        viderLists[listName].push(val);
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: Added "${val}" to ${listName}</div>`;
+                    } else {
+                        throw new Error(`List ${listName} not found`);
+                    }
+                    continue;
+                }
+
+                // 3. list.get $NAZWA$ (index) INTO $VAR$,
+                if (l.startsWith("list.get") && l.endsWith(",")) {
+                    let listName = l.match(/\$.*?\$/)[0];
+                    let idx = parseInt(l.match(/\((\d+)\)/)[1]);
+                    let targetVar = l.match(/INTO\s+(\$.*?\$)/)[1];
+                    if (viderLists[listName] && viderLists[listName][idx] !== undefined) {
+                        viderMemory[targetVar] = viderLists[listName][idx];
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: Get ${listName}[${idx}] -> ${targetVar}</div>`;
+                    } else {
+                        throw new Error(`Index ${idx} out of bounds for ${listName}`);
+                    }
+                    continue;
+                }
+
+                // 4. list.clear $NAZWA$,
+                if (l.startsWith("list.clear") && l.endsWith(",")) {
+                    let listName = l.match(/\$.*?\$/)[0];
+                    if (viderLists[listName]) {
+                        viderLists[listName] = [];
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} cleared.</div>`;
+                    }
+                    continue;
+                }
+
+                // --- KONIEC MODUŁU LIST ---
 
                 // Tabela
                 if (l.includes("Table Create on $UNO$")) {
@@ -78,13 +125,28 @@ window.onload = function() {
                     continue;
                 }
 
-                // Kolorowanie []
+                // Kolorowanie [] z obsługą FROM (NOWA LOGIKA)
                 if (l.startsWith("[]") && l.includes("color.")) {
                     let target = l.match(/"(.*?)"/)[1];
                     let color = l.split("=")[1].trim().replace(",", "");
+                    
+                    // Sprawdzanie czy jest warunek FROM
+                    let fromMatch = l.match(/FROM\s+(\$.*?\$)/);
                     let allCells = document.getElementsByTagName('td');
+
                     for (let cell of allCells) {
-                        if (cell.innerText === target) cell.style.color = color;
+                        if (cell.innerText === target) {
+                            if (fromMatch) {
+                                let listName = fromMatch[1];
+                                // Koloruj tylko jeśli wartość faktycznie jest w tej liście
+                                if (viderLists[listName] && viderLists[listName].includes(target)) {
+                                    cell.style.color = color;
+                                }
+                            } else {
+                                // Standardowe kolorowanie bez filtra
+                                cell.style.color = color;
+                            }
+                        }
                     }
                     continue;
                 }
@@ -152,7 +214,6 @@ window.onload = function() {
         }
     };
 
-    // --- FUNKCJA RESETU (Dostępna globalnie przez window) ---
     window.resetCode = function() {
         if (confirm("Czy na pewno chcesz wyczyścić cały kod? Tej operacji nie da się cofnąć!")) {
             localStorage.removeItem('vider_autosave');
