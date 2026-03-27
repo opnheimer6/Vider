@@ -15,12 +15,11 @@ window.onload = function() {
     btn.onclick = async function() {
         btn.disabled = true;
         scene.innerHTML = ''; 
-        con.innerHTML = '<div style="color:#555">-- Vider v3.8 [CORE FIXED] --</div>';
+        con.innerHTML = '<div style="color:#555">-- Vider v3.9 [FINAL STABLE] --</div>';
         
         const lines = edit.value.split('\n');
         let viderMemory = {}; 
         let viderLists = {}; 
-        let viderIndex = [];
         let tableRef = null;
         let lineNum = 0;
 
@@ -32,7 +31,7 @@ window.onload = function() {
             try {
                 let low = l.toLowerCase();
 
-                // 1. LISTY (Muszą być pierwsze!)
+                // 1. LISTY
                 if (low.startsWith("list.create")) {
                     let m = l.match(/\$\w+\$/);
                     if (m) {
@@ -55,11 +54,13 @@ window.onload = function() {
                 }
 
                 if (low.startsWith("list.get")) {
+                    // Poprawione na ignorowanie wielkości liter w "into"
                     let parts = l.match(/list\.get\s+(\$\w+\$)\s+\((\d+)\)\s+into\s+(\$\w+\$)/i);
                     if (parts) {
                         let [_, lName, idx, tVar] = parts;
-                        if (viderLists[lName] && viderLists[lName][parseInt(idx)] !== undefined) {
-                            viderMemory[tVar] = viderLists[lName][parseInt(idx)];
+                        let index = parseInt(idx);
+                        if (viderLists[lName] && viderLists[lName][index] !== undefined) {
+                            viderMemory[tVar] = viderLists[lName][index];
                             con.innerHTML += `<div style="color:#ff00ff">[GET]: ${tVar} = ${viderMemory[tVar]}</div>`;
                         }
                     }
@@ -73,11 +74,11 @@ window.onload = function() {
                 }
 
                 // 3. WYŚWIETLANIE NA SCENIE (GÓRA)
-                if (l.startsWith("Vider on print")) {
+                if (low.startsWith("vider on print")) {
                     let txt = l.match(/\("(.*)"\)/);
                     if (txt) {
                         let content = txt[1];
-                        // Podmień zmienne w tekście do wyświetlenia
+                        // Podmiana zmiennych przed wyświetleniem
                         for (let key in viderMemory) {
                             content = content.split(key).join(viderMemory[key]);
                         }
@@ -89,7 +90,7 @@ window.onload = function() {
                     continue;
                 }
 
-                // 4. LOGIKA POZOSTAŁA (Tabele, Set, itd.)
+                // 4. LOGIKA POZOSTAŁA
                 if (processedLine.includes("Table Create")) {
                     tableRef = document.createElement('table');
                     tableRef.style.cssText = "width:100%; border-collapse:collapse; margin-top:10px;";
@@ -115,19 +116,23 @@ window.onload = function() {
                     continue;
                 }
 
-                if (l.startsWith("set.")) {
+                if (low.startsWith("set.")) {
                     let content = l.substring(4).replace(",", "").trim();
-                    let [vName, vVal] = content.split("=").map(s => s.trim());
-                    if (vVal.includes("random")) {
-                        let r = vVal.match(/\((\d+),(\d+)\)/);
-                        if(r) viderMemory[vName] = Math.floor(Math.random() * (parseInt(r[2]) - parseInt(r[1]) + 1)) + parseInt(r[1]);
-                    } else {
-                        viderMemory[vName] = vVal.replace(/"/g, "");
+                    let parts = content.split("=");
+                    if(parts.length === 2) {
+                        let vName = parts[0].trim();
+                        let vVal = parts[1].trim();
+                        if (vVal.includes("random")) {
+                            let r = vVal.match(/\((\d+),(\d+)\)/);
+                            if(r) viderMemory[vName] = Math.floor(Math.random() * (parseInt(r[2]) - parseInt(r[1]) + 1)) + parseInt(r[1]);
+                        } else {
+                            viderMemory[vName] = vVal.replace(/"/g, "");
+                        }
                     }
                     continue;
                 }
 
-                if (l === "SENT") con.innerHTML += `<div style="color:lime; font-weight:bold;">SENT</div>`;
+                if (low === "sent") con.innerHTML += `<div style="color:lime; font-weight:bold;">SENT</div>`;
 
             } catch (e) {
                 con.innerHTML += `<div style="color:red">[ERR] L:${lineNum}: ${e.message}</div>`;
