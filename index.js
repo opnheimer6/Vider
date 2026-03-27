@@ -195,3 +195,24 @@ window.onload = function() {
         if (confirm("Reset?")) { localStorage.removeItem('vider_autosave'); location.reload(); }
     };
 };
+// --- MODUŁ WYŚWIETLANIA NA SCENIE ---
+if (l.startsWith("Vider on print")) {
+    let txt = l.match(/\("(.*)"\)/);
+    if (txt) {
+        let content = txt[1];
+        
+        // Ta linijka podmienia zmienne (np. $WYNIK$) na realne dane
+        for (let key in viderMemory) {
+            content = content.split(key).join(viderMemory[key]);
+        }
+
+        // TWORZENIE ELEMENTU NA GÓRNEJ SCENIE (v-scene)
+        let msg = document.createElement('div');
+        msg.style.color = "white";
+        msg.style.fontSize = "20px";
+        msg.style.marginBottom = "5px";
+        msg.innerText = "> " + content;
+        scene.appendChild(msg); // <--- TO WYSYŁA NA GÓRĘ
+    }
+    continue;
+}
