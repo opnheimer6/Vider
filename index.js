@@ -13,6 +13,42 @@ window.onload = function() {
     });
 
     btn.onclick = async function() {
+        // --- MODUŁ LIST [TEST AGRESYWNY] ---
+                let lineLower = l.toLowerCase();
+                
+                if (lineLower.includes("list.create")) {
+                    alert("WYKRYTO CREATE!"); // TEST: Jeśli to nie wyskoczy, parser omija linię
+                    let m = l.match(/\$\w+\$/);
+                    if (m) {
+                        viderLists[m[0]] = [];
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${m[0]} OK</div>`;
+                    }
+                    continue;
+                }
+
+                if (lineLower.includes("list.add")) {
+                    let valMatch = l.match(/\("(.*?)"\)/);
+                    let listMatch = l.match(/into\s+(\$\w+\$)/i);
+                    if (valMatch && listMatch) {
+                        if (!viderLists[listMatch[1]]) viderLists[listMatch[1]] = [];
+                        viderLists[listMatch[1]].push(valMatch[1]);
+                        con.innerHTML += `<div style="color:#ff00ff">[ADD]: ${valMatch[1]} -> ${listMatch[1]}</div>`;
+                    }
+                    continue;
+                }
+
+                if (lineLower.includes("list.get")) {
+                    // Szukamy: list.get $EQ$ (0) INTO $VAR$
+                    let parts = l.match(/list\.get\s+(\$\w+\$)\s+\((\d+)\)\s+into\s+(\$\w+\$)/i);
+                    if (parts) {
+                        let [_, lName, idx, tVar] = parts;
+                        if (viderLists[lName] && viderLists[lName][parseInt(idx)] !== undefined) {
+                            viderMemory[tVar] = viderLists[lName][parseInt(idx)];
+                            con.innerHTML += `<div style="color:#ff00ff">[GET]: ${tVar} = ${viderMemory[tVar]}</div>`;
+                        }
+                    }
+                    continue;
+                }
         // Blokada przycisku, żeby nie kliknąć 10 razy naraz
         btn.disabled = true;
         scene.innerHTML = ''; 
