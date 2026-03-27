@@ -223,3 +223,43 @@ window.onload = function() {
         }
     };
 };
+// --- NOWY MODUŁ LIST (DOPISZ TO TUTAJ) ---
+                
+                // 1. Tworzenie listy: list.create $NAZWA$,
+                if (l.startsWith("list.create") && l.endsWith(",")) {
+                    let listName = l.match(/\$.*?\$/)[0];
+                    viderLists[listName] = [];
+                    con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} created.</div>`;
+                    continue;
+                }
+
+                // 2. Dodawanie: list.add ("Wartość") into $NAZWA$,
+                if (l.startsWith("list.add") && l.endsWith(",")) {
+                    let val = l.match(/\("(.*?)"\)/)[1];
+                    let listName = l.match(/into\s+(\$.*?\$)/)[1];
+                    if (viderLists[listName]) {
+                        viderLists[listName].push(val);
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: Added "${val}" to ${listName}</div>`;
+                    }
+                    continue;
+                }
+
+                // 3. Pobieranie: list.get $NAZWA$ (index) INTO $VAR$,
+                if (l.startsWith("list.get") && l.endsWith(",")) {
+                    let listName = l.match(/\$.*?\$/)[0];
+                    let idx = parseInt(l.match(/\((\d+)\)/)[1]);
+                    let targetVar = l.match(/INTO\s+(\$.*?\$)/)[1];
+                    if (viderLists[listName] && viderLists[listName][idx] !== undefined) {
+                        viderMemory[targetVar] = viderLists[listName][idx];
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${targetVar} = ${viderMemory[targetVar]}</div>`;
+                    }
+                    continue;
+                }
+
+                // 4. Czyszczenie: list.clear $NAZWA$,
+                if (l.startsWith("list.clear") && l.endsWith(",")) {
+                    let listName = l.match(/\$.*?\$/)[0];
+                    if (viderLists[listName]) viderLists[listName] = [];
+                    continue;
+                }
+                // --- KONIEC MODUŁU LIST ---
