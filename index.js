@@ -36,54 +36,107 @@ window.onload = function() {
                     l = l.split(key).join(viderMemory[key]);
                 }
 
-                // --- MODUŁ LIST (NOWOŚĆ) ---
+               btn.onclick = async function() {
+        scene.innerHTML = ''; 
+        con.innerHTML = '<div style="color:#555">-- Vider v3.5 [STABLE LISTS] --</div>';
+        
+        const lines = edit.value.split('\n');
+        let viderMemory = {}; 
+        let viderLists = {}; 
+        let viderIndex = [];
+        let tableRef = null;
+        let lineNum = 0;
 
-                // 1. list.create $NAZWA$,
-                if (l.startsWith("list.create") && l.endsWith(",")) {
-                    let listName = l.match(/\$.*?\$/)[0];
-                    viderLists[listName] = [];
-                    con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} created.</div>`;
-                    continue;
-                }
+        for (let line of lines) {
+            lineNum++;
+            let l = line.trim();
+            if (!l || l.startsWith("//")) continue;
 
-                // 2. list.add ("Wartość") into $NAZWA$,
-                if (l.startsWith("list.add") && l.endsWith(",")) {
-                    let val = l.match(/\("(.*?)"\)/)[1];
-                    let listName = l.match(/into\s+(\$.*?\$)/)[1];
-                    if (viderLists[listName]) {
-                        viderLists[listName].push(val);
-                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: Added "${val}" to ${listName}</div>`;
-                    } else {
-                        throw new Error(`List ${listName} not found`);
+            try {
+                // --- KROK 1: MODUŁ LIST (MUSI BYĆ PRZED PODMIANĄ ZMIENNYCH!) ---
+
+                // Tworzenie listy
+                if (l.includes("list.create")) {
+                    let m = l.match(/\$\w+\$/);
+                    if (m) {
+                        let listName = m[0];
+                        viderLists[listName] = [];
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} created.</div>`;
+                        continue; 
                     }
-                    continue;
                 }
 
-                // 3. list.get $NAZWA$ (index) INTO $VAR$,
-                if (l.startsWith("list.get") && l.endsWith(",")) {
-                    let listName = l.match(/\$.*?\$/)[0];
-                    let idx = parseInt(l.match(/\((\d+)\)/)[1]);
-                    let targetVar = l.match(/INTO\s+(\$.*?\$)/)[1];
-                    if (viderLists[listName] && viderLists[listName][idx] !== undefined) {
+                // Dodawanie do listy
+                if (l.includes("list.add")) {
+                    let val = l.match(/\("(.*?)"\)/)?.[1];
+                    let listName = l.match(/into\s+(\$\w+\$)/)?.[1];
+                    if (val && listName) {
+                        if (viderLists[listName]) {
+                            viderLists[listName].push(val);
+                            con.innerHTML += `<div style="color:#ff00ff">[LIST]: Added "${val}" to ${listName}</div>`;
+                        } else {
+                            throw new Error(`List ${listName} nie istnieje!`);
+                        }
+                        continue;
+                    }
+                }
+
+                // Pobieranie z listy
+                if (l.includes("list.get")) {
+                    let listName = l.match(/\$\w+\$/)?.[0];
+                    let idx = parseInt(l.match(/\((\d+)\)/)?.[1]);
+                    let targetVar = l.match(/INTO\s+(\$\w+\$)/)?.[1];
+                    if (listName && targetVar && viderLists[listName]) {
                         viderMemory[targetVar] = viderLists[listName][idx];
                         con.innerHTML += `<div style="color:#ff00ff">[LIST]: Get ${listName}[${idx}] -> ${targetVar}</div>`;
-                    } else {
-                        throw new Error(`Index ${idx} out of bounds for ${listName}`);
+                        continue;
+                    }
+                }
+
+                // --- KROK 2: PODMIANA ZMIENNYCH (DLA CAŁEJ RESZTY KODU) ---
+                for (let key in viderMemory) {
+                    l = l.split(key).join(viderMemory[key]);
+                }
+
+                // --- KROK 3: RESZTA TWOJEGO SYSTEMU (TABELE, PRINT, ITD.) ---
+                if (l.includes("Table Create on $UNO$")) {
+                    tableRef = document.createElement('table');
+                    tableRef.style.cssText = "width:100%; border-collapse:collapse; margin-top:10px;";
+                    scene.appendChild(tableRef);
+                    continue;
+                }
+
+                if (l.startsWith("<") && l.endsWith(">")) {
+                    let type = l.substring(1, 4);
+                    let contentMatch = l.match(/<(?:col|imp|ims)\s+(.*)>/);
+                    if (contentMatch) {
+                        let cells = contentMatch[1].split(",").map(c => c.trim().replace(/"/g, ""));
+                        let row = document.createElement('tr');
+                        cells.forEach(c => {
+                            let td = document.createElement('td');
+                            td.innerText = c;
+                            td.style.cssText = "border:1px solid white; padding:8px; color:white;";
+                            if (type === "col") { td.style.fontWeight = "bold"; td.style.backgroundColor = "#333"; }
+                            row.appendChild(td);
+                        });
+                        if (tableRef) type === "col" ? tableRef.prepend(row) : tableRef.appendChild(row);
                     }
                     continue;
                 }
 
-                // 4. list.clear $NAZWA$,
-                if (l.startsWith("list.clear") && l.endsWith(",")) {
-                    let listName = l.match(/\$.*?\$/)[0];
-                    if (viderLists[listName]) {
-                        viderLists[listName] = [];
-                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} cleared.</div>`;
-                    }
+                if (l.startsWith("Vider on print")) {
+                    let txt = l.match(/\("(.*)"\)/);
+                    if (txt) con.innerHTML += `<div style="color:white">> ${txt[1]}</div>`;
                     continue;
                 }
 
-                // --- KONIEC MODUŁU LIST ---
+                if (l === "SENT") con.innerHTML += `<div style="color:lime; font-weight:bold;">SENT</div>`;
+
+            } catch (e) {
+                con.innerHTML += `<div style="color:red">[ERR] L:${lineNum}: ${e.message}</div>`;
+            }
+        }
+    };
 
                 // Tabela
                 if (l.includes("Table Create on $UNO$")) {
@@ -223,43 +276,4 @@ window.onload = function() {
         }
     };
 };
-// --- NOWY MODUŁ LIST (DOPISZ TO TUTAJ) ---
-                
-                // 1. Tworzenie listy: list.create $NAZWA$,
-                if (l.startsWith("list.create") && l.endsWith(",")) {
-                    let listName = l.match(/\$.*?\$/)[0];
-                    viderLists[listName] = [];
-                    con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} created.</div>`;
-                    continue;
-                }
 
-                // 2. Dodawanie: list.add ("Wartość") into $NAZWA$,
-                if (l.startsWith("list.add") && l.endsWith(",")) {
-                    let val = l.match(/\("(.*?)"\)/)[1];
-                    let listName = l.match(/into\s+(\$.*?\$)/)[1];
-                    if (viderLists[listName]) {
-                        viderLists[listName].push(val);
-                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: Added "${val}" to ${listName}</div>`;
-                    }
-                    continue;
-                }
-
-                // 3. Pobieranie: list.get $NAZWA$ (index) INTO $VAR$,
-                if (l.startsWith("list.get") && l.endsWith(",")) {
-                    let listName = l.match(/\$.*?\$/)[0];
-                    let idx = parseInt(l.match(/\((\d+)\)/)[1]);
-                    let targetVar = l.match(/INTO\s+(\$.*?\$)/)[1];
-                    if (viderLists[listName] && viderLists[listName][idx] !== undefined) {
-                        viderMemory[targetVar] = viderLists[listName][idx];
-                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${targetVar} = ${viderMemory[targetVar]}</div>`;
-                    }
-                    continue;
-                }
-
-                // 4. Czyszczenie: list.clear $NAZWA$,
-                if (l.startsWith("list.clear") && l.endsWith(",")) {
-                    let listName = l.match(/\$.*?\$/)[0];
-                    if (viderLists[listName]) viderLists[listName] = [];
-                    continue;
-                }
-                // --- KONIEC MODUŁU LIST ---
