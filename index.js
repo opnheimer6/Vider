@@ -6,9 +6,7 @@ window.onload = function() {
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     const savedCode = localStorage.getItem('vider_autosave');
-    if (savedCode) {
-        edit.value = savedCode;
-    }
+    if (savedCode) { edit.value = savedCode; }
 
     edit.addEventListener('input', () => {
         localStorage.setItem('vider_autosave', edit.value);
@@ -16,11 +14,11 @@ window.onload = function() {
 
     btn.onclick = async function() {
         scene.innerHTML = ''; 
-        con.innerHTML = '<div style="color:#555">-- Vider v3.5 [LIST UPDATE] --</div>';
+        con.innerHTML = '<div style="color:#555">-- Vider v3.5 [LISTS ENABLED] --</div>';
         
         const lines = edit.value.split('\n');
         let viderMemory = {}; 
-        let viderLists = {}; // NOWOŚĆ: Pamięć dla list
+        let viderLists = {}; // Pamięć dla list
         let viderIndex = [];
         let tableRef = null;
         let lineNum = 0;
@@ -31,77 +29,46 @@ window.onload = function() {
             if (!l || l.startsWith("//")) continue;
 
             try {
-                // Podmiana zmiennych
-                for (let key in viderMemory) {
-                    l = l.split(key).join(viderMemory[key]);
+                // --- 1. MODUŁ LIST (MUSI BYĆ PRZED PODMIANĄ ZMIENNYCH) ---
+                if (l.startsWith("list.create")) {
+                    let listName = l.match(/\$\w+\$/)[0];
+                    viderLists[listName] = [];
+                    con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} created.</div>`;
+                    continue;
                 }
 
-               btn.onclick = async function() {
-        scene.innerHTML = ''; 
-        con.innerHTML = '<div style="color:#555">-- Vider v3.5 [STABLE LISTS] --</div>';
-        
-        const lines = edit.value.split('\n');
-        let viderMemory = {}; 
-        let viderLists = {}; 
-        let viderIndex = [];
-        let tableRef = null;
-        let lineNum = 0;
-
-        for (let line of lines) {
-            lineNum++;
-            let l = line.trim();
-            if (!l || l.startsWith("//")) continue;
-
-            try {
-                // --- KROK 1: MODUŁ LIST (MUSI BYĆ PRZED PODMIANĄ ZMIENNYCH!) ---
-
-                // Tworzenie listy
-                if (l.includes("list.create")) {
-                    let m = l.match(/\$\w+\$/);
-                    if (m) {
-                        let listName = m[0];
-                        viderLists[listName] = [];
-                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${listName} created.</div>`;
-                        continue; 
-                    }
+                if (l.startsWith("list.add")) {
+                    let val = l.match(/\("(.*?)"\)/)[1];
+                    let listName = l.match(/into\s+(\$\w+\$)/)[1];
+                    if (viderLists[listName]) viderLists[listName].push(val);
+                    continue;
                 }
 
-                // Dodawanie do listy
-                if (l.includes("list.add")) {
-                    let val = l.match(/\("(.*?)"\)/)?.[1];
-                    let listName = l.match(/into\s+(\$\w+\$)/)?.[1];
-                    if (val && listName) {
-                        if (viderLists[listName]) {
-                            viderLists[listName].push(val);
-                            con.innerHTML += `<div style="color:#ff00ff">[LIST]: Added "${val}" to ${listName}</div>`;
-                        } else {
-                            throw new Error(`List ${listName} nie istnieje!`);
+                if (l.startsWith("list.get")) {
+                    let parts = l.match(/list\.get\s+(\$\w+\$)\s+\((\d+)\)\s+INTO\s+(\$\w+\$)/);
+                    if (parts) {
+                        let [_, lName, idx, tVar] = parts;
+                        if (viderLists[lName] && viderLists[lName][idx] !== undefined) {
+                            viderMemory[tVar] = viderLists[lName][idx];
+                            con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${tVar} = ${viderMemory[tVar]}</div>`;
                         }
-                        continue;
                     }
+                    continue;
                 }
 
-                // Pobieranie z listy
-                if (l.includes("list.get")) {
-                    let listName = l.match(/\$\w+\$/)?.[0];
-                    let idx = parseInt(l.match(/\((\d+)\)/)?.[1]);
-                    let targetVar = l.match(/INTO\s+(\$\w+\$)/)?.[1];
-                    if (listName && targetVar && viderLists[listName]) {
-                        viderMemory[targetVar] = viderLists[listName][idx];
-                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: Get ${listName}[${idx}] -> ${targetVar}</div>`;
-                        continue;
-                    }
-                }
-
-                // --- KROK 2: PODMIANA ZMIENNYCH (DLA CAŁEJ RESZTY KODU) ---
+                // --- 2. PODMIANA ZMIENNYCH ---
                 for (let key in viderMemory) {
                     l = l.split(key).join(viderMemory[key]);
                 }
 
-                // --- KROK 3: RESZTA TWOJEGO SYSTEMU (TABELE, PRINT, ITD.) ---
-                if (l.includes("Table Create on $UNO$")) {
+                // --- 3. TWOJA ORYGINALNA LOGIKA (TABELE, REPEAT, ITD.) ---
+                
+                // Poprawiony warunek tabeli (szuka frazy, nie tylko zmiennej)
+                if (l.includes("Table Create")) {
                     tableRef = document.createElement('table');
-                    tableRef.style.cssText = "width:100%; border-collapse:collapse; margin-top:10px;";
+                    tableRef.style.width = "100%";
+                    tableRef.style.borderCollapse = "collapse";
+                    tableRef.style.marginTop = "10px";
                     scene.appendChild(tableRef);
                     continue;
                 }
@@ -115,51 +82,6 @@ window.onload = function() {
                         cells.forEach(c => {
                             let td = document.createElement('td');
                             td.innerText = c;
-                            td.style.cssText = "border:1px solid white; padding:8px; color:white;";
-                            if (type === "col") { td.style.fontWeight = "bold"; td.style.backgroundColor = "#333"; }
-                            row.appendChild(td);
-                        });
-                        if (tableRef) type === "col" ? tableRef.prepend(row) : tableRef.appendChild(row);
-                    }
-                    continue;
-                }
-
-                if (l.startsWith("Vider on print")) {
-                    let txt = l.match(/\("(.*)"\)/);
-                    if (txt) con.innerHTML += `<div style="color:white">> ${txt[1]}</div>`;
-                    continue;
-                }
-
-                if (l === "SENT") con.innerHTML += `<div style="color:lime; font-weight:bold;">SENT</div>`;
-
-            } catch (e) {
-                con.innerHTML += `<div style="color:red">[ERR] L:${lineNum}: ${e.message}</div>`;
-            }
-        }
-    };
-
-                // Tabela
-                if (l.includes("Table Create on $UNO$")) {
-                    tableRef = document.createElement('table');
-                    tableRef.style.width = "100%";
-                    tableRef.style.borderCollapse = "collapse";
-                    tableRef.style.marginTop = "10px";
-                    scene.appendChild(tableRef);
-                    continue;
-                }
-
-                // Składnia <col> <imp> <ims>
-                if (l.startsWith("<") && l.endsWith(">")) {
-                    let type = l.substring(1, 4);
-                    let contentMatch = l.match(/<(?:col|imp|ims)\s+(.*)>/);
-                    if (contentMatch) {
-                        let content = contentMatch[1];
-                        let cells = content.split(",").map(c => c.trim().replace(/"/g, ""));
-                        let row = document.createElement('tr');
-                        
-                        cells.forEach(c => {
-                            let td = document.createElement('td');
-                            td.innerText = c;
                             td.style.border = "1px solid white";
                             td.style.padding = "8px";
                             td.style.color = "white";
@@ -169,7 +91,6 @@ window.onload = function() {
                             }
                             row.appendChild(td);
                         });
-
                         if (tableRef) {
                             if (type === "col") tableRef.prepend(row);
                             else tableRef.appendChild(row);
@@ -178,40 +99,12 @@ window.onload = function() {
                     continue;
                 }
 
-                // Kolorowanie [] z obsługą FROM (NOWA LOGIKA)
-                if (l.startsWith("[]") && l.includes("color.")) {
-                    let target = l.match(/"(.*?)"/)[1];
-                    let color = l.split("=")[1].trim().replace(",", "");
-                    
-                    // Sprawdzanie czy jest warunek FROM
-                    let fromMatch = l.match(/FROM\s+(\$.*?\$)/);
-                    let allCells = document.getElementsByTagName('td');
-
-                    for (let cell of allCells) {
-                        if (cell.innerText === target) {
-                            if (fromMatch) {
-                                let listName = fromMatch[1];
-                                // Koloruj tylko jeśli wartość faktycznie jest w tej liście
-                                if (viderLists[listName] && viderLists[listName].includes(target)) {
-                                    cell.style.color = color;
-                                }
-                            } else {
-                                // Standardowe kolorowanie bez filtra
-                                cell.style.color = color;
-                            }
-                        }
-                    }
-                    continue;
-                }
-
-                // ask. i set.
                 if (l.startsWith("ask.") && l.endsWith(",")) {
                     let content = l.substring(4, l.length - 1).trim();
-                    let varName = content.match(/\$.*?\$/)[0];
+                    let varName = content.match(/\$\w+\$/)[0];
                     let question = content.match(/"(.*?)"/)[1];
-                    let userInput = prompt(question); 
-                    viderMemory[varName] = userInput;
-                    con.innerHTML += `<div style="color:#00aaff">[INPUT]: ${varName} = ${userInput}</div>`;
+                    viderMemory[varName] = prompt(question); 
+                    con.innerHTML += `<div style="color:#00aaff">[INPUT]: ${varName} OK.</div>`;
                     continue;
                 }
 
@@ -221,33 +114,29 @@ window.onload = function() {
                     if (vVal.includes("random")) {
                         let r = vVal.match(/\((.*?)\)/)[1].split(",").map(n => parseInt(n.trim()));
                         viderMemory[vName] = Math.floor(Math.random() * (r[1] - r[0] + 1)) + r[0];
-                        con.innerHTML += `<div style="color:#ffcc00">[DICE]: ${vName} = ${viderMemory[vName]}</div>`;
                     } else {
                         viderMemory[vName] = vVal;
-                        con.innerHTML += `<div style="color:#44ffaa">[MEM]: ${vName} OK.</div>`;
                     }
                     continue;
                 }
 
-                // Systemowe
                 if (l.startsWith("Vider on print")) {
                     let txt = l.match(/\("(.*)"\)/);
                     if (txt) con.innerHTML += `<div style="color:white">> ${txt[1]}</div>`;
                     continue;
                 }
-                if (l.startsWith("task.wait")) {
-                    await sleep(parseInt(l.match(/\((\d+)\)/)[1]) * 1000);
-                    continue;
-                }
+
                 if (l.startsWith("sum")) {
                     let res = eval(l.match(/\((.*)\)/)[1]);
                     con.innerHTML += `<div style="color:#00ff00">RACHUNEK: ${res}</div>`;
                     continue;
                 }
+
                 if (l.startsWith("Create Index of")) {
                     viderIndex = Array.from({length: parseInt(l.match(/\((\d+)\)/)[1]) + 1}, (_, i) => i);
                     continue;
                 }
+
                 if (l.startsWith("Repeat")) {
                     let times = parseInt(l.match(/Repeat\s*\((\d+)\)/)[1]);
                     let inner = l.match(/Vider\.WriteLine\("(.*)"\)/)[1];
@@ -259,6 +148,7 @@ window.onload = function() {
                     }
                     continue;
                 }
+
                 if (l === "SENT") con.innerHTML += `<div style="color:lime; font-weight:bold;">SENT</div>`;
 
             } catch (e) {
@@ -268,12 +158,9 @@ window.onload = function() {
     };
 
     window.resetCode = function() {
-        if (confirm("Czy na pewno chcesz wyczyścić cały kod? Tej operacji nie da się cofnąć!")) {
+        if (confirm("Reset?")) {
             localStorage.removeItem('vider_autosave');
-            edit.value = "";
-            scene.innerHTML = '';
-            con.innerHTML = '';
+            location.reload();
         }
     };
 };
-
