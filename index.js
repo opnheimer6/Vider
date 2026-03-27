@@ -13,56 +13,9 @@ window.onload = function() {
     });
 
     btn.onclick = async function() {
-        // --- FUNDAMENTY VIDERA ---
-        let viderMemory = {}; // Tu żyją Twoje zmienne ($NAME$, $LVL$)
-        let viderLists = {};  // Tu żyją Twoje listy ($EQ$, $ITEMS$)
-        let viderIndex = [];  // Tu żyje Twój Index do Repeat
-        // -------------------------
-
-        scene.innerHTML = ''; 
-        con.innerHTML = '<div style="color:#555">-- Vider v3.6 [MEMORY FIXED] --</div>';
-        
-        const lines = edit.value.split('\n');
-        let tableRef = null;
-        let lineNum = 0;
-                
-                if (lineLower.includes("list.create")) {
-                    alert("WYKRYTO CREATE!"); // TEST: Jeśli to nie wyskoczy, parser omija linię
-                    let m = l.match(/\$\w+\$/);
-                    if (m) {
-                        viderLists[m[0]] = [];
-                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${m[0]} OK</div>`;
-                    }
-                    continue;
-                }
-
-                if (lineLower.includes("list.add")) {
-                    let valMatch = l.match(/\("(.*?)"\)/);
-                    let listMatch = l.match(/into\s+(\$\w+\$)/i);
-                    if (valMatch && listMatch) {
-                        if (!viderLists[listMatch[1]]) viderLists[listMatch[1]] = [];
-                        viderLists[listMatch[1]].push(valMatch[1]);
-                        con.innerHTML += `<div style="color:#ff00ff">[ADD]: ${valMatch[1]} -> ${listMatch[1]}</div>`;
-                    }
-                    continue;
-                }
-
-                if (lineLower.includes("list.get")) {
-                    // Szukamy: list.get $EQ$ (0) INTO $VAR$
-                    let parts = l.match(/list\.get\s+(\$\w+\$)\s+\((\d+)\)\s+into\s+(\$\w+\$)/i);
-                    if (parts) {
-                        let [_, lName, idx, tVar] = parts;
-                        if (viderLists[lName] && viderLists[lName][parseInt(idx)] !== undefined) {
-                            viderMemory[tVar] = viderLists[lName][parseInt(idx)];
-                            con.innerHTML += `<div style="color:#ff00ff">[GET]: ${tVar} = ${viderMemory[tVar]}</div>`;
-                        }
-                    }
-                    continue;
-                }
-        // Blokada przycisku, żeby nie kliknąć 10 razy naraz
         btn.disabled = true;
         scene.innerHTML = ''; 
-        con.innerHTML = '<div style="color:#555">-- Vider v3.5 [STABLE] --</div>';
+        con.innerHTML = '<div style="color:#555">-- Vider v3.8 [CORE FIXED] --</div>';
         
         const lines = edit.value.split('\n');
         let viderMemory = {}; 
@@ -77,47 +30,76 @@ window.onload = function() {
             if (!l || l.startsWith("//")) continue;
 
             try {
-                // 1. LISTY
-                if (l.startsWith("list.create")) {
+                let low = l.toLowerCase();
+
+                // 1. LISTY (Muszą być pierwsze!)
+                if (low.startsWith("list.create")) {
                     let m = l.match(/\$\w+\$/);
-                    if(m) { viderLists[m[0]] = []; con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${m[0]} created.</div>`; }
-                    continue;
-                }
-                if (l.startsWith("list.add")) {
-                    let valMatch = l.match(/\("(.*?)"\)/);
-                    let listMatch = l.match(/into\s+(\$\w+\$)/);
-                    if (valMatch && listMatch && viderLists[listMatch[1]]) {
-                        viderLists[listMatch[1]].push(valMatch[1]);
+                    if (m) {
+                        viderLists[m[0]] = [];
+                        con.innerHTML += `<div style="color:#ff00ff">[LIST]: ${m[0]} OK</div>`;
                     }
                     continue;
                 }
-                if (l.startsWith("list.get")) {
-                    let parts = l.match(/list\.get\s+(\$\w+\$)\s+\((\d+)\)\s+INTO\s+(\$\w+\$)/);
+
+                if (low.startsWith("list.add")) {
+                    let valMatch = l.match(/\("(.*?)"\)/);
+                    let listMatch = l.match(/into\s+(\$\w+\$)/i);
+                    if (valMatch && listMatch) {
+                        let listName = listMatch[1];
+                        if (!viderLists[listName]) viderLists[listName] = [];
+                        viderLists[listName].push(valMatch[1]);
+                        con.innerHTML += `<div style="color:#ff00ff">[ADD]: ${valMatch[1]} -> ${listName}</div>`;
+                    }
+                    continue;
+                }
+
+                if (low.startsWith("list.get")) {
+                    let parts = l.match(/list\.get\s+(\$\w+\$)\s+\((\d+)\)\s+into\s+(\$\w+\$)/i);
                     if (parts) {
                         let [_, lName, idx, tVar] = parts;
-                        if (viderLists[lName] && viderLists[lName][idx] !== undefined) {
-                            viderMemory[tVar] = viderLists[lName][idx];
+                        if (viderLists[lName] && viderLists[lName][parseInt(idx)] !== undefined) {
+                            viderMemory[tVar] = viderLists[lName][parseInt(idx)];
+                            con.innerHTML += `<div style="color:#ff00ff">[GET]: ${tVar} = ${viderMemory[tVar]}</div>`;
                         }
                     }
                     continue;
                 }
 
-                // 2. PODMIANA ZMIENNYCH
+                // 2. PODMIANA ZMIENNYCH (Dla printów i tabel)
+                let processedLine = l;
                 for (let key in viderMemory) {
-                    l = l.split(key).join(viderMemory[key]);
+                    processedLine = processedLine.split(key).join(viderMemory[key]);
                 }
 
-                // 3. LOGIKA
-                if (l.includes("Table Create")) {
+                // 3. WYŚWIETLANIE NA SCENIE (GÓRA)
+                if (l.startsWith("Vider on print")) {
+                    let txt = l.match(/\("(.*)"\)/);
+                    if (txt) {
+                        let content = txt[1];
+                        // Podmień zmienne w tekście do wyświetlenia
+                        for (let key in viderMemory) {
+                            content = content.split(key).join(viderMemory[key]);
+                        }
+                        let msg = document.createElement('div');
+                        msg.style.cssText = "color:white; font-size:20px; margin-bottom:5px;";
+                        msg.innerText = "> " + content;
+                        scene.appendChild(msg);
+                    }
+                    continue;
+                }
+
+                // 4. LOGIKA POZOSTAŁA (Tabele, Set, itd.)
+                if (processedLine.includes("Table Create")) {
                     tableRef = document.createElement('table');
                     tableRef.style.cssText = "width:100%; border-collapse:collapse; margin-top:10px;";
                     scene.appendChild(tableRef);
                     continue;
                 }
 
-                if (l.startsWith("<") && l.endsWith(">")) {
-                    let type = l.substring(1, 4);
-                    let contentMatch = l.match(/<(?:col|imp|ims)\s+(.*)>/);
+                if (processedLine.startsWith("<") && processedLine.endsWith(">")) {
+                    let type = processedLine.substring(1, 4);
+                    let contentMatch = processedLine.match(/<(?:col|imp|ims)\s+(.*)>/);
                     if (contentMatch) {
                         let cells = contentMatch[1].split(",").map(c => c.trim().replace(/"/g, ""));
                         let row = document.createElement('tr');
@@ -133,13 +115,6 @@ window.onload = function() {
                     continue;
                 }
 
-                if (l.startsWith("ask.")) {
-                    let vName = l.match(/\$\w+\$/)[0];
-                    let q = l.match(/"(.*?)"/)[1];
-                    viderMemory[vName] = prompt(q);
-                    continue;
-                }
-
                 if (l.startsWith("set.")) {
                     let content = l.substring(4).replace(",", "").trim();
                     let [vName, vVal] = content.split("=").map(s => s.trim());
@@ -147,37 +122,7 @@ window.onload = function() {
                         let r = vVal.match(/\((\d+),(\d+)\)/);
                         if(r) viderMemory[vName] = Math.floor(Math.random() * (parseInt(r[2]) - parseInt(r[1]) + 1)) + parseInt(r[1]);
                     } else {
-                        viderMemory[vName] = vVal;
-                    }
-                    continue;
-                }
-
-                if (l.startsWith("sum")) {
-                    let expr = l.match(/\((.*)\)/)[1];
-                    con.innerHTML += `<div style="color:#00ff00">RACHUNEK: ${eval(expr)}</div>`;
-                    continue;
-                }
-
-                if (l.startsWith("Create Index of")) {
-                    let num = parseInt(l.match(/\((\d+)\)/)[1]);
-                    viderIndex = Array.from({length: num + 1}, (_, i) => i);
-                    continue;
-                }
-
-                if (l.startsWith("Repeat")) {
-                    let tMatch = l.match(/Repeat\s*\((\d+)\)/);
-                    let iMatch = l.match(/Vider\.WriteLine\("(.*)"\)/);
-                    if (tMatch && iMatch) {
-                        let times = parseInt(tMatch[1]);
-                        let inner = iMatch[1];
-                        for (let t = 0; t < times; t++) {
-                            // Zabezpieczenie: jeśli nie ma indexu, zrób chociaż jeden przebieg
-                            let loopIdx = viderIndex.length > 0 ? viderIndex : [0];
-                            for (let v of loopIdx) {
-                                con.innerHTML += `<div style="color:#00ffff;">[VAL]: ${inner.replace("Index", v)}</div>`;
-                                await sleep(5); // Krótki sleep, żeby nie zamrozić strony
-                            }
-                        }
+                        viderMemory[vName] = vVal.replace(/"/g, "");
                     }
                     continue;
                 }
@@ -188,31 +133,10 @@ window.onload = function() {
                 con.innerHTML += `<div style="color:red">[ERR] L:${lineNum}: ${e.message}</div>`;
             }
         }
-        btn.disabled = false; // Odblokuj przycisk
+        btn.disabled = false;
     };
 
     window.resetCode = function() {
         if (confirm("Reset?")) { localStorage.removeItem('vider_autosave'); location.reload(); }
     };
 };
-// --- MODUŁ WYŚWIETLANIA NA SCENIE ---
-if (l.startsWith("Vider on print")) {
-    let txt = l.match(/\("(.*)"\)/);
-    if (txt) {
-        let content = txt[1];
-        
-        // Ta linijka podmienia zmienne (np. $WYNIK$) na realne dane
-        for (let key in viderMemory) {
-            content = content.split(key).join(viderMemory[key]);
-        }
-
-        // TWORZENIE ELEMENTU NA GÓRNEJ SCENIE (v-scene)
-        let msg = document.createElement('div');
-        msg.style.color = "white";
-        msg.style.fontSize = "20px";
-        msg.style.marginBottom = "5px";
-        msg.innerText = "> " + content;
-        scene.appendChild(msg); // <--- TO WYSYŁA NA GÓRĘ
-    }
-    continue;
-}
