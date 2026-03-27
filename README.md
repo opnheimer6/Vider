@@ -1,4 +1,5 @@
 🚀 VIDER COMMAND DICTIONARY v3.4 (EN)
+
 1. <col (Columns/Header) Opis: Creates the first, highlighted row of the table.
 
 Kod: <col "Name", "Quantity", "Type" >
