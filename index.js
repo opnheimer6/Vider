@@ -13,8 +13,18 @@ window.onload = function() {
     });
 
     btn.onclick = async function() {
-        // --- MODUŁ LIST [TEST AGRESYWNY] ---
-                let lineLower = l.toLowerCase();
+        // --- FUNDAMENTY VIDERA ---
+        let viderMemory = {}; // Tu żyją Twoje zmienne ($NAME$, $LVL$)
+        let viderLists = {};  // Tu żyją Twoje listy ($EQ$, $ITEMS$)
+        let viderIndex = [];  // Tu żyje Twój Index do Repeat
+        // -------------------------
+
+        scene.innerHTML = ''; 
+        con.innerHTML = '<div style="color:#555">-- Vider v3.6 [MEMORY FIXED] --</div>';
+        
+        const lines = edit.value.split('\n');
+        let tableRef = null;
+        let lineNum = 0;
                 
                 if (lineLower.includes("list.create")) {
                     alert("WYKRYTO CREATE!"); // TEST: Jeśli to nie wyskoczy, parser omija linię
